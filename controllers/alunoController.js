@@ -38,13 +38,15 @@ const deletarAluno = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const aluno = await Aluno.findByIdAndDelete(id);
+    const resultado = await Aluno.deleteOne({ _id: id });
 
-    if (!aluno) {
+    if (resultado.deletedCount === 0) {
       return errorResponse(res, "Aluno não encontrado", 404);
     }
 
-    return res.status(200).json({ message: "Aluno removido com sucesso!" });
+    return res.status(200).json({
+      message: "Aluno removido com sucesso!",
+    });
   } catch (error) {
     return errorResponse(res);
   }
