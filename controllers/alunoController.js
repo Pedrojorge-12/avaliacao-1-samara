@@ -1,42 +1,85 @@
-const Aluno = require("../models/aluno")
+const Aluno = require("../models/aluno");
+const errorResponse = require("../utils/errorResponse");
 
 const criarAluno = async (req, res) => {
-  const { nome, idade } = req.body;
+  try {
+    const { nome, idade } = req.body;
 
-  const novoAluno = new Aluno({
-    nome,
-    idade,
-  });
+    if (!nome || idade === undefined) {
+      return errorResponse(res, "Nome e idade são obrigatórios", 400);
+    }
 
-  await novoAluno.save();
+    if (idade <= 0 || typeof idade !== "number") {
+      return errorResponse(res, "Idade inválida", 400);
+    }
 
-  res.json({
-    message: "Aluno criado com sucesso!",
-    aluno: novoAluno,
-  });
+    const novoAluno = new Aluno({ nome, idade });
+    await novoAluno.save();
+
+    return res.status(201).json({
+      message: "Aluno criado com sucesso!",
+      aluno: novoAluno,
+    });
+  } catch (error) {
+    return errorResponse(res);
+  }
 };
 
 const obterTodosAlunos = async (req, res) => {
-  const alunos = await Aluno.find().populate('perfil');
-  res.json(alunos);
+  try {
+    const alunos = await Aluno.find().populate("perfil");
+    return res.status(200).json(alunos);
+  } catch (error) {
+    return errorResponse(res);
+  }
 };
 
 const deletarAluno = async (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  await Aluno.deleteOne({ _id: id });
-  res.json({ message: 'Aluno removido com sucesso!' });
+    const aluno = await Aluno.findByIdAndDelete(id);
+
+    if (!aluno) {
+      return errorResponse(res, "Aluno não encontrado", 404);
+    }
+
+    return res.status(200).json({ message: "Aluno removido com sucesso!" });
+  } catch (error) {
+    return errorResponse(res);
+  }
 };
 
 const editarAluno = async (req, res) => {
-  const { id } = req.params;
-  const { nome, idade } = req.body;
+  try {
+    const { id } = req.params;
+    const { nome, idade } = req.body;
 
-  let aluno = await Aluno.findByIdAndUpdate(id, { nome, idade });
-  res.status(200).json({
-    message: 'Aluno atualizado com sucesso!',
-    aluno,
-  });
+    if (!nome || idade === undefined) {
+      return errorResponse(res, "Nome e idade são obrigatórios", 400);
+    }
+
+    if (idade <= 0 || typeof idade !== "number") {
+      return errorResponse(res, "Idade inválida", 400);
+    }
+
+    const aluno = await Aluno.findByIdAndUpdate(
+      id,
+      { nome, idade },
+      { new: true }
+    );
+
+    if (!aluno) {
+      return errorResponse(res, "Aluno não encontrado", 404);
+    }
+
+    return res.status(200).json({
+      message: "Aluno atualizado com sucesso!",
+      aluno,
+    });
+  } catch (error) {
+    return errorResponse(res);
+  }
 };
 
-module.exports = {criarAluno, deletarAluno, editarAluno, obterTodosAlunos}
+module.exports = { criarAluno, deletarAluno, editarAluno, obterTodosAlunos };
