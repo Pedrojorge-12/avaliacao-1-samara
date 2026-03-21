@@ -1,45 +1,85 @@
-const Tarefa = require("../models/tarefa")
+const Tarefa = require("../models/tarefa");
+const Disciplina = require("../models/disciplina");
+const errorResponse = require("../utils/errorResponse");
 
 const criarTarefa = async (req, res) => {
-  const { titulo, alunoId, disciplinasIds } = req.body;
-  const concluida = false;
+  try {
+    const { titulo, alunoId, disciplinasIds } = req.body;
 
-  const novaTarefa = new Tarefa({
-    titulo,
-    aluno: alunoId,
-    concluida,
-    disciplinas: disciplinasIds,
-  });
+    if (!titulo || !alunoId) {
+      return errorResponse(res, "Título e alunoId são obrigatórios", 400);
+    }
 
-  await novaTarefa.save();
+    const novaTarefa = new Tarefa({
+      titulo,
+      aluno: alunoId,
+      concluida: false,
+      disciplinas: Array.isArray(disciplinasIds) ? disciplinasIds : [],
+    });
 
-  res.json({
-    message: "Tarefa criada com sucesso!",
-    tarefa: novaTarefa,
-  });
+    await novaTarefa.save();
+
+    return res.status(201).json({
+      message: "Tarefa criada com sucesso!",
+      tarefa: novaTarefa,
+    });
+  } catch (error) {
+    return errorResponse(res);
+  }
 };
 
 const obterTodasTarefas = async (req, res) => {
-  const tarefas = await Tarefa.find().populate("aluno").populate("disciplinas");
-  res.json(tarefas);
+  try {
+    const tarefas = await Tarefa.find().populate("aluno").populate("disciplinas");
+    return res.status(200).json(tarefas);
+  } catch (error) {
+    return errorResponse(res);
+  }
 };
 
 const deletarTarefa = async (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  await Tarefa.deleteOne({ _id: id });
-  res.json({ message: "Tarefa removida com sucesso!" });
+    const resultado = await Tarefa.deleteOne({ _id: id });
+
+    if (resultado.deletedCount === 0) {
+      return errorResponse(res, "Tarefa não encontrada", 404);
+    }
+
+    await Disciplina.updateMany(
+      { tarefas: id },
+      { $pull: { tarefas: id } }
+    );
+
+    return res.status(200).json({ message: "Tarefa removida com sucesso!" });
+  } catch (error) {
+    return errorResponse(res);
+  }
 };
 
 const editarTarefa = async (req, res) => {
-  const { id } = req.params;
-  const { titulo, concluida } = req.body;
+  try {
+    const { id } = req.params;
+    const { titulo, concluida } = req.body;
 
-  let tarefa = await Tarefa.findByIdAndUpdate(id, { titulo, concluida });
-  res.status(200).json({
-    message: "Tarefa atualizada com sucesso!",
-    tarefa,
-  });
+    if (!titulo) {
+      return errorResponse(res, "Título é obrigatório", 400);
+    }
+
+    const tarefa = await Tarefa.findByIdAndUpdate(id, { titulo, concluida }, { new: true });
+
+    if (!tarefa) {
+      return errorResponse(res, "Tarefa não encontrada", 404);
+    }
+
+    return res.status(200).json({
+      message: "Tarefa atualizada com sucesso!",
+      tarefa,
+    });
+  } catch (error) {
+    return errorResponse(res);
+  }
 };
 
 module.exports = { criarTarefa, deletarTarefa, editarTarefa, obterTodasTarefas }
