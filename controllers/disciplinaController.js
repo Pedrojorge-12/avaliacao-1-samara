@@ -1,5 +1,6 @@
-const Disciplina = require("../models/disciplina")
-const Tarefa = require("../models/tarefa")
+const Disciplina = require("../models/disciplina");
+const Tarefa = require("../models/tarefa");
+const errorResponse = require("../utils/errorResponse");
 
 const criarDisciplina = async (req, res) => {
   try {
@@ -22,7 +23,7 @@ const criarDisciplina = async (req, res) => {
     if (Array.isArray(tarefasIds) && tarefasIds.length > 0) {
       await Tarefa.updateMany(
         { _id: { $in: tarefasIds } },
-        { $push: { disciplinas: novaDisciplina._id } }
+        { $addToSet: { disciplinas: novaDisciplina._id } }
       );
     }
 
@@ -54,9 +55,12 @@ const deletarDisciplina = async (req, res) => {
       return errorResponse(res, "Disciplina não encontrada", 404);
     }
 
-    return res.status(200).json({
-      message: "Disciplina removida com sucesso!",
-    });
+    await Tarefa.updateMany(
+      { disciplinas: id },
+      { $pull: { disciplinas: id } }
+    );
+
+    return res.status(200).json({ message: "Disciplina removida com sucesso!" });
   } catch (error) {
     return errorResponse(res);
   }
@@ -71,23 +75,36 @@ const editarDisciplina = async (req, res) => {
       return errorResponse(res, "Nome, dataInicio e dataFim são obrigatórios", 400);
     }
 
-    const disciplina = await Disciplina.findByIdAndUpdate(
-      id,
-      { nome, descricao, dataInicio, dataFim, tarefas: Array.isArray(tarefasIds) ? tarefasIds : [] },
-      { new: true }
-    );
-
-
-    if (!disciplina) {
+    const disciplinaAntiga = await Disciplina.findById(id);
+    if (!disciplinaAntiga) {
       return errorResponse(res, "Disciplina não encontrada", 404);
     }
 
-    if (Array.isArray(tarefasIds) && tarefasIds.length > 0) {
+    const novasTarefas = Array.isArray(tarefasIds) ? tarefasIds : [];
+    const tarefasAntigas = disciplinaAntiga.tarefas.map((tarefa) => tarefa.toString());
+
+    const tarefasParaRemover = tarefasAntigas.filter((antiga) => !novasTarefas.includes(antiga));
+    const tarefasParaAdicionar = novasTarefas.filter((nova) => !tarefasAntigas.includes(nova));
+
+    if (tarefasParaRemover.length > 0) {
       await Tarefa.updateMany(
-        { _id: { $in: tarefasIds } },
-        { $push: { disciplinas: disciplina._id } }
+        { _id: { $in: tarefasParaRemover } },
+        { $pull: { disciplinas: disciplinaAntiga._id } }
       );
     }
+
+    if (tarefasParaAdicionar.length > 0) {
+      await Tarefa.updateMany(
+        { _id: { $in: tarefasParaAdicionar } },
+        { $addToSet: { disciplinas: disciplinaAntiga._id } }
+      );
+    }
+
+    const disciplina = await Disciplina.findByIdAndUpdate(
+      id,
+      { nome, descricao, dataInicio, dataFim, tarefas: novasTarefas },
+      { new: true }
+    );
 
     return res.status(200).json({
       message: "Disciplina atualizada com sucesso!",
