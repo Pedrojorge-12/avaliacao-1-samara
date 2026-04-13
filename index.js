@@ -5,7 +5,12 @@ const express = require("express");
 const app = express();
 
 const cors = require('cors');
-app.use(cors({ origin: '*' }));
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.options('*', cors());
 
 const path = require('path');
 app.use(express.static(path.join(__dirname, '.')));
